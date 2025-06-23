@@ -243,12 +243,13 @@ def visualize_graph_text(documents, direction="bidir") -> str:
     rendered_trees = []
     print("\nTree Structure:")
     for root_node in root_nodes:
+        print(RenderTree(root_node))
         tree_str = ""
         for pre, _, node in RenderTree(root_node):
             tree_str += f"{pre}{node.name}\n"
         rendered_trees.append(tree_str)
         print(tree_str)
-
+    
     # Combine all rendered trees into a single string
     combined_tree_str = "".join(rendered_trees)
 
