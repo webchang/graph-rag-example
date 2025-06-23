@@ -24,11 +24,13 @@ from util.config import OPENAI_API_KEY, ASTRA_DB_ID, ASTRA_TOKEN, MOVIE_NODE_TAB
 
 # Initialize embeddings and LLM using OpenAI
 embeddings = OpenAIEmbeddings(api_key=OPENAI_API_KEY)
-llm = ChatOpenAI(temperature=1, model_name="gpt-4o")
+# llm = ChatOpenAI(temperature=1, model_name="gpt-4o")
+llm = ChatOpenAI(temperature=1, model_name="gpt-4o-mini")
 
 # Initialize Astra connection using Cassio
 cassio.init(database_id=ASTRA_DB_ID, token=ASTRA_TOKEN)
-store = CassandraGraphVectorStore(embeddings, node_table=MOVIE_NODE_TABLE)
+# store = CassandraGraphVectorStore(embeddings, node_table=MOVIE_NODE_TABLE)
+store = CassandraGraphVectorStore(embeddings, keyspace="default_keyspace", table_name=MOVIE_NODE_TABLE)
 
 class ChainManager:
     """
@@ -105,6 +107,7 @@ async def get_similarity_result(chain_manager, question):
     invoked_chain = chain_manager.similarity_chain.invoke(question)
     content = invoked_chain.content
     usage_metadata = invoked_chain.usage_metadata
+    print(f"Similarity Result: {content[:200]}...", flush=True)  # Print the first 200 characters of the result
     return content, usage_metadata
 
 
@@ -122,4 +125,5 @@ async def get_mmr_result(chain_manager, question):
     invoked_chain = chain_manager.mmr_chain.invoke(question)
     content = invoked_chain.content
     usage_metadata = invoked_chain.usage_metadata
+    print(f"MMR Result: {content[:200]}...", flush=True)  # Print the first 200 characters of the result
     return content, usage_metadata

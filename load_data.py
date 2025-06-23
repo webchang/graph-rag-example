@@ -32,7 +32,9 @@ embeddings = OpenAIEmbeddings(api_key=OPENAI_API_KEY)
 
 # Initialize Astra connection using Cassio
 cassio.init(database_id=ASTRA_DB_ID, token=ASTRA_TOKEN)
-store = CassandraGraphVectorStore(embeddings, node_table=MOVIE_NODE_TABLE)
+# store = CassandraGraphVectorStore(embeddings, node_table=MOVIE_NODE_TABLE)
+# store = CassandraGraphVectorStore(embeddings, table_name=MOVIE_NODE_TABLE)
+store = CassandraGraphVectorStore(embeddings, keyspace="default_keyspace", table_name=MOVIE_NODE_TABLE)
 
 
 def get_urls(num_items=10):
@@ -59,6 +61,8 @@ def get_urls(num_items=10):
         if i >= max_items:
             break
         urls.append("https://www.themoviedb.org/movie/" + str(movie.get('id')))
+    print(f"Fetched {len(urls)} URLs from the JSON file.")
+    print("URLs:", urls)
     return urls
 
 
@@ -71,12 +75,24 @@ def main():
     It also visualizes the documents as a text-based graph.
     """
     try:
-        # Load and process documents
-        loader = AsyncHtmlLoader(get_urls(num_items=20))
-        documents = loader.load()
+        # # Load and process documents
+        # loader = AsyncHtmlLoader(get_urls(num_items=20))
+        # documents = loader.load()
+        
+        urls = get_urls(num_items=20)
+        documents = []
+        for url in urls:
+            try:
+                print(f"Attempting to load the URL: {url}")
+                loader = AsyncHtmlLoader([url])
+                docs = loader.load()
+                documents.extend(docs)
+            except Exception as e:
+                LOGGER.error(f"Error loading {url}: {e}")
 
         # Process documents in chunks of 10
         chunk_size = 10
+        print(f"Total documents loaded: {len(documents)}")
         for i in range(0, len(documents), chunk_size):
             print(f"Processing documents {i + 1} to {i + chunk_size}...")
             document_chunk = documents[i:i + chunk_size]
@@ -87,9 +103,11 @@ def main():
                 KeybertLinkExtractor(),
             ])
             document_chunk = transformer.transform_documents(document_chunk)
+            print(f"Transformed {len(document_chunk)} documents with link extraction.")
 
             # Clean and preprocess documents using the new function
             document_chunk = clean_and_preprocess_documents(document_chunk)
+            print(f"Cleaned and preprocessed {len(document_chunk)} documents.")
 
             # The bs4 transformer is very capable and provides better content, but
             # it is much slower than the clean_and_preprocess_documents function used above.
@@ -106,12 +124,15 @@ def main():
             ner_extractor = GLiNERLinkExtractor(["Genre", "Topic"])
             transformer = LinkExtractorTransformer([ner_extractor])
             document_chunk = transformer.transform_documents(document_chunk)
+            print(f"Split {len(document_chunk)} documents into chunks.")
 
             # Add documents to the graph vector store
             store.add_documents(document_chunk)
+            print(f"Added {len(document_chunk)} document chunks to the graph vector store.")
 
             # Visualize the graph text for the current chunk
             visualize_graph_text(document_chunk)
+            print(f"Visualized graph text for documents {i + 1} to {i + chunk_size}.")
 
     except Exception as e:
         LOGGER.error("An error occurred: %s", e)
